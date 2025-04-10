@@ -33,7 +33,8 @@ st.markdown("""
 <style>
     .main-header {
         font-size: 2.5rem;
-        color: #FF5A5F; /* Airbnb color */
+        color: black;
+         /* Airbnb color */
         text-align: center;
         margin-bottom: 1rem;
     }
@@ -62,7 +63,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.sidebar.title("Navigasyon")
-pages = ["Ana Sayfa", "Veri İnceleme", "Ön İşleme Sonuçları", "Model Sonuçları", "Harita Görselleştirme"]
+pages = ["Ana Sayfa", "Veri İnceleme", "Ön İşleme Sonuçları", "Model Sonuçları", "Harita Görselleştirme","Raporlama"]
 selected_page = st.sidebar.radio("", pages)
 
 @st.cache_data
@@ -428,9 +429,54 @@ if df is not None:
                 Random Forest modeli en iyi performansı göstermiştir. 
                 R² değeri 1'e yakın olduğu için modelin açıklama gücü yüksektir.
                 """)
-                
+
+                                                # Korelasyon matrisi
+                st.markdown("<h2 class='section-header'>Korelasyon Matrisi</h2>", unsafe_allow_html=True)
+
+                # İşlenmiş veri ile korelasyon hesapla
+                _, _, processed_df = preprocess_data(df)
+
+                # Sadece sayısal sütunları alalım
+                corr = processed_df.select_dtypes(include=["float64", "int64"]).corr()
+
+                # Grafik
+                fig, ax = plt.subplots(figsize=(12, 10))
+                sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", square=True, ax=ax)
+                ax.set_title("Değişkenler Arası Korelasyon Matrisi")
+                st.pyplot(fig)
+
+                # Yorum
+                st.markdown("""
+                Korelasyon matrisi, değişkenler arasındaki ilişkileri göstermektedir. Fiyatla en güçlü pozitif korelasyon neighbourhood_encoded (mahalle ortalama fiyatı) ve reviews_per_month_original (yorum yoğunluğu) değişkenlerindedir. Ayrıca review_score ile number_of_reviews arasında beklenen şekilde yüksek bir ilişki vardır. Bu analiz, modele en çok katkı sağlayan değişkenleri belirlemek için önemlidir.
+                """)
+
+                st.markdown("<h3 class='subsection-header'>Kategorik Değişkenler ve Ortalama Fiyat</h3>", unsafe_allow_html=True)
+
+                categorical_cols = ["room_type", "neighbourhood_group"]
+                selected_cat = st.selectbox("İncelemek istediğiniz kategorik değişkeni seçin:", categorical_cols)
+
+                # Seçilen kategoriye göre ortalama fiyat
+                avg_price_by_cat = df.groupby(selected_cat)["price"].mean().sort_values(ascending=False).reset_index()
+
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.barplot(x="price", y=selected_cat, data=avg_price_by_cat, palette="magma", ax=ax)
+                ax.set_title(f"{selected_cat} kategorisine göre ortalama fiyat")
+                ax.set_xlabel("Ortalama Fiyat ($)")
+                ax.set_ylabel(selected_cat)
+                st.pyplot(fig)
+
+                # Açıklama
+                st.markdown(f"""
+                **{selected_cat}** değişkenine göre Airbnb fiyatlarının nasıl değiştiği yukarıdaki grafikte görülmektedir.
+
+                Bu grafik:
+                - Her bir kategori için **ortalama fiyat** değerini gösterir.
+                - Modelin `room_type` ve `neighbourhood_group` gibi değişkenlere neden önem verdiğini açıklar.
+                """)
 
 
+
+ 
     elif selected_page == "Harita Görselleştirme":
         st.markdown("<h1 class='main-header'>Harita Görselleştirme</h1>", unsafe_allow_html=True)
         
@@ -494,6 +540,32 @@ if df is not None:
                 folium_static(m, height=600)
         except Exception as e:
             st.error(f"Harita oluşturulurken bir hata oluştu: {e}")
+
+    elif selected_page == "Raporlama":
+        st.markdown("<h1 class='main-header'>📊Proje Raporlaması</h1>", unsafe_allow_html=True)
+
+        
+        
+
+        
+
+        st.markdown("<h2 class='section-header'> Sonuçlar ve Yorumlar</h2>", unsafe_allow_html=True)
+        st.markdown("""
+        - En başarılı model: **Random Forest**, test verisinde **R² = 0.99**
+        - Aşırı öğrenme gözlemlenmemiştir (train ve test R² yakın)
+        - Modelin en önemli değişkenleri:
+            - `neighbourhood_encoded`: mahalle ortalama fiyatı
+            - `latitude`, `longitude`: konum bilgisi
+            - `room_type_Entire home/apt`: tüm ev olup olmaması
+        """)
+
+        st.markdown("<h2 class='section-header'> Çıkarımlar</h2>", unsafe_allow_html=True)
+        st.markdown("""
+        - Lokasyon ve mahalle ortalamaları fiyat üzerinde en baskın faktörlerdir.
+        """)
+
+        
+
 
 if __name__ == "__main__":
    
