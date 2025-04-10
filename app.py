@@ -120,21 +120,20 @@ if df is not None:
     if selected_page == "Ana Sayfa":
         st.markdown("<h1 class='main-header'>New York Airbnb Fiyat Tahmini</h1>", unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns([1, 3, 1])
-        with col2:
-            st.image("https://a0.muscache.com/im/pictures/fe7217ff-0b24-438d-8833-1dd45a298a6b.jpg", use_column_width=True)
-        
-        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        st.markdown("<div>", unsafe_allow_html=True)
         st.markdown("""
-        Bu veri seti ile New York City'deki Airbnb ilanlarının fiyatlarını tahmin etmeye çalışacağız. 
-        Amacımız, bir evi kiralamak isteyen birinin fiyatının ne olacağını öngörmek. 
-        Bunun için Regresyon, Karar Ağacı ve Random Forest modelleri uygulayacağız.
+        Bu projede, New York City'deki Airbnb kiralık dairelerin fiyatlarını tahmin etmek amacıyla regresyon modelleri geliştirilmiştir.
+        Amacımız, bir evi kiralamak isteyen birinin ödeyeceği fiyatı öngörebilmektir.
+        Bu doğrultuda, Doğrusal Regresyon, Karar Ağacı ve Random Forest modelleri uygulanmıştır.
         """)
         st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("<h2 class='section-header'>Veri Seti Genel Bakış</h2>", unsafe_allow_html=True)
         st.dataframe(df.head())
-        
+        rows, cols = df.shape
+        st.markdown(f"""
+        Veri seti toplam **{rows} gözlem (satır)** ve **{cols} özellik (sütun)** içermektedir.  
+        """)
         st.markdown("<h2 class='section-header'>Veri Seti Sütunları</h2>", unsafe_allow_html=True)
         st.markdown("""
         - **id**: Airbnb ilanının benzersiz kimlik numarası
@@ -158,7 +157,16 @@ if df is not None:
   
     elif selected_page == "Veri İnceleme":
         st.markdown("<h1 class='main-header'>Veri İnceleme</h1>", unsafe_allow_html=True)
-     
+        st.markdown("<h2 class='section-header'>Eksik Değer Analizi</h2>", unsafe_allow_html=True)
+        
+        missing_vals = df.isnull().sum()
+        missing_cols = missing_vals[missing_vals > 0]
+        
+        if len(missing_cols) > 0:
+            st.write("Eksik değer içeren sütunlar:")
+            st.write(missing_cols)
+        else:
+            st.success("Veri setinde eksik değer bulunmuyor.")
         st.markdown("<h2 class='section-header'>Aylık Yorum Sayısı Analizi</h2>", unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
@@ -167,10 +175,10 @@ if df is not None:
         with col2:
             st.metric("Medyan", f"{df['reviews_per_month'].median():.2f}")
         
-        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        st.markdown("<div>", unsafe_allow_html=True)
         st.markdown("""
-        Çarpık bir dağılım var. Çünkü ortalama > medyan olduğundan dağılım sağa çarpık. 
-        Bu da birçok ilan çok az yorum alırken, az sayıda ilan aşırı fazla yorum aldığını gösteriyor.
+        Çarpık bir dağılım var. Çünkü ortalama > medyan olduğundan aylık yorum sayısı verisi sağa çarpık bir dağılıma sahiptir.
+        Çünkü verilerin çoğu düşük yorum sayısına sahipken, birkaç popüler ilanın çok yüksek yorum alması ortalamayı yukarı çekmektedir.
         """)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -185,19 +193,10 @@ if df is not None:
         
         st.markdown("""
         Daha fazla yorum sayısına sahip ilanlar ortalamayı yukarı çekiyor. 
-        Burada çarpıklığı azaltmam gerekiyor. Dağılımı dengeli hale getirelim.
+        Burada çarpıklığı azaltmam gerekiyor. Dağılımı dengeli hale getirmek gerekiyor.
         """)
 
-        st.markdown("<h2 class='section-header'>Eksik Değer Analizi</h2>", unsafe_allow_html=True)
         
-        missing_vals = df.isnull().sum()
-        missing_cols = missing_vals[missing_vals > 0]
-        
-        if len(missing_cols) > 0:
-            st.write("Eksik değer içeren sütunlar:")
-            st.write(missing_cols)
-        else:
-            st.success("Veri setinde eksik değer bulunmuyor.")
     
  
     elif selected_page == "Ön İşleme Sonuçları":
@@ -247,11 +246,14 @@ if df is not None:
             
             st.pyplot(fig)
             
-            st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+            st.markdown("<div>", unsafe_allow_html=True)
             st.markdown("""
-            ✓ Çünkü veri uç değerler içeriyor ve çarpık bir dağılım gösteriyor.  
-            ✓ Çoğu ilan çok az yorum alırken, birkaç ilan çok fazla yorum alıyor.  
-            ✓ mean() kullanırsak, az yorum alan ilanlar için yanlış tahmin yapabiliriz.
+            Aylık yorum sayısı değişkeni başlangıçta oldukça sağa çarpıktı.
+            Bu durum, az sayıda ilanın aşırı fazla yorum alması nedeniyle, ortalamanın yukarı çekilmesinden kaynaklanıyordu.
+            Yeo-Johnson dönüşümü ile bu dağılım daha simetrik ve normal benzeri bir yapıya dönüştürüldü.
+            Böylece hem uç değerlerin etkisi azaldı, hem de regresyon modellerinin doğruluğu artırılmış oldu.
+
+
             """)
             st.markdown("</div>", unsafe_allow_html=True)
         except Exception as e:
@@ -263,10 +265,10 @@ if df is not None:
         st.markdown("""
         Eksik değerleri şu stratejiye göre doldurdum:
         
-        1. Önce reviews_per_month sütununu float tipine çevirdim.
-        2. Aynı mahalle ve oda tipindeki medyan değerleri kullanarak eksik değerleri doldurdum.
-        3. Hala eksik değer varsa, mahalle bazında medyan değerleri kullandım.
-        4. Son olarak, kalan eksik değerleri 0 ile doldurdum.
+        
+        1. Aynı mahalle ve oda tipindeki medyan değerleri kullanarak eksik değerleri doldurdum.Çünkü benzer özellikteki evlerin benzer yorum alma ihtimali yüksek
+        2. Hala eksik değer varsa, mahalle bazında medyan değerleri kullandım.
+        3. Son olarak, kalan eksik değerleri 0 ile doldurdum.
         """)
         
  
@@ -274,11 +276,40 @@ if df is not None:
         
         st.markdown("""
         1. neighbourhood_group ve room_type kategorik değişkenlerini one-hot encoding ile sayısal değerlere dönüştürdüm.
-        2. neighbourhood değişkenini, her mahalle için ortalama fiyatı hesaplayarak kodladım.
+        2. neighbourhood sütunu, 200'den fazla farklı mahalle ismi içeriyordu.
+        Bu değişkeni doğrudan modele vermek hem anlamlı olmaz hem de yüksek boyutluluğa sebep olurdu.
+        Bunun yerine, her mahallenin ortalama fiyatını hesaplayarak neighbourhood_encoded adlı yeni bir sayısal değişken oluşturdum.BU sayede artık mahalle ismi degil o mahallenin ortalam fiyat bilgisini çektik.
         3. Sıfır fiyatlı ilanları veri setinden çıkardım.
-        4. Logaritmik dönüşümler uygulayarak log_price ve minimum_nights_log değişkenlerini oluşturdum.
-        5. reviews_per_month ve number_of_reviews değişkenlerini birleştirerek review_score adlı yeni bir özellik oluşturdum.
+        4. Fiyat değişkenine log(1 + price) dönüşümü uyguladım.
+        Bu sayede fiyatlardaki çarpıklığı azalttım ve veriyi modellere daha uygun hale getirdim.
+        5. Minimum konaklama süresi ve yorum sayısı gibi değişkenlerde yüksek uç değerler bulunuyordu.
+        minimum_nights değişkenine log dönüşümü uygulayarak bu uç değerlerin etkisini azalttım.
+        6. reviews_per_month ile number_of_reviews’u çarparak yeni bir review_score değişkeni oluşturdum.
+        Bu yeni özellik, hem evin ne kadar aktif olduğunu hem de ne kadar uzun süredir platformda olduğunu yansıtarak model için daha bilgilendirici hale geldi.
         """)
+        # minimum_nights_log sütunu yoksa oluştur
+        if "minimum_nights_log" not in df.columns:
+            df["minimum_nights_log"] = np.log1p(df["minimum_nights"])
+
+        # Görselleştirme
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Orijinal minimum_nights dağılımı
+        sns.histplot(df["minimum_nights"], bins=50, kde=True, ax=axes[0], color="skyblue")
+        axes[0].set_title("Minimum Nights (Orijinal)")
+        axes[0].set_xlabel("minimum_nights")
+
+        # Log dönüşümlü minimum_nights dağılımı
+        sns.histplot(df["minimum_nights_log"], bins=50, kde=True, ax=axes[1], color="lightgreen")
+        axes[1].set_title("Minimum Nights (Log Dönüşümlü)")
+        axes[1].set_xlabel("minimum_nights_log")
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        
+
+
     
    
     elif selected_page == "Model Sonuçları":
@@ -301,11 +332,13 @@ if df is not None:
                 lr_mae = mean_absolute_error(y_test, lr_pred)
                 lr_mse = mean_squared_error(y_test, lr_pred)
                 lr_rmse = np.sqrt(lr_mse)
+                lr_r2 = r2_score(y_test, lr_pred) 
                 
-                col1, col2, col3 = st.columns(3)
-                col1.metric("MAE", f"${lr_mae:.2f}")
-                col2.metric("RMSE", f"${lr_rmse:.2f}")
-                col3.metric("MSE", f"${lr_mse:.2f}")
+                col1, col2, col3,col4 = st.columns(4)
+                col1.metric("MAE", f"{lr_mae:.2f}")
+                col2.metric("RMSE", f"{lr_rmse:.2f}")
+                col3.metric("MSE", f"{lr_mse:.2f}")
+                col4.metric("R²", f"{lr_r2:.4f}") 
                 
                 fig, ax = plt.subplots(figsize=(8, 6))
                 sns.scatterplot(x=y_test, y=lr_pred, alpha=0.5, ax=ax)
@@ -330,8 +363,8 @@ if df is not None:
                 dt_r2 = r2_score(y_test, dt_pred)
                 
                 col1, col2, col3 = st.columns(3)
-                col1.metric("MAE", f"${dt_mae:.2f}")
-                col2.metric("MSE", f"${dt_mse:.2f}")
+                col1.metric("MAE", f"{dt_mae:.2f}")
+                col2.metric("MSE", f"{dt_mse:.2f}")
                 col3.metric("R²", f"{dt_r2:.4f}")
                 
                 fig, ax = plt.subplots(figsize=(8, 6))
@@ -363,8 +396,8 @@ if df is not None:
                 rf_r2 = r2_score(y_test, rf_pred)
                 
                 col1, col2, col3 = st.columns(3)
-                col1.metric("MAE", f"${rf_mae:.2f}")
-                col2.metric("MSE", f"${rf_mse:.2f}")
+                col1.metric("MAE", f"{rf_mae:.2f}")
+                col2.metric("MSE", f"{rf_mse:.2f}")
                 col3.metric("R²", f"{rf_r2:.4f}")
                 
                 fig, ax = plt.subplots(figsize=(8, 6))
@@ -390,13 +423,13 @@ if df is not None:
                 comparison_df = comparison_df.set_index('Model')
                 st.dataframe(comparison_df.style.highlight_min(subset=['MAE', 'MSE']).highlight_max(subset=['R²']))
                 
-                st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+                st.markdown("<div>", unsafe_allow_html=True)
                 st.markdown("""
                 Random Forest modeli en iyi performansı göstermiştir. 
                 R² değeri 1'e yakın olduğu için modelin açıklama gücü yüksektir.
                 """)
-                st.markdown("</div>", unsafe_allow_html=True)
-    
+                
+
 
     elif selected_page == "Harita Görselleştirme":
         st.markdown("<h1 class='main-header'>Harita Görselleştirme</h1>", unsafe_allow_html=True)
