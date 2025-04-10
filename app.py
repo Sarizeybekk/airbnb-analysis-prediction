@@ -63,7 +63,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.sidebar.title("Navigasyon")
-pages = ["Ana Sayfa", "Veri İnceleme", "Ön İşleme Sonuçları", "Model Sonuçları", "Harita Görselleştirme","Raporlama"]
+pages = ["Ana Sayfa", "Veri İnceleme", "Ön İşleme Sonuçları", "Model Sonuçları", "Harita Görselleştirme","Raporlama","Fiyat Tahmin"]
 selected_page = st.sidebar.radio("", pages)
 
 @st.cache_data
@@ -266,7 +266,7 @@ if df is not None:
         st.markdown("""
         Eksik değerleri şu stratejiye göre doldurdum:
         
-        
+        --Bu sütunlar ("id", "name", "host_id", "host_name", "last_review") analiz için gereksiz sutünlarımı verimden attım.
         1. Aynı mahalle ve oda tipindeki medyan değerleri kullanarak eksik değerleri doldurdum.Çünkü benzer özellikteki evlerin benzer yorum alma ihtimali yüksek
         2. Hala eksik değer varsa, mahalle bazında medyan değerleri kullandım.
         3. Son olarak, kalan eksik değerleri 0 ile doldurdum.
@@ -551,21 +551,69 @@ if df is not None:
 
         st.markdown("<h2 class='section-header'> Sonuçlar ve Yorumlar</h2>", unsafe_allow_html=True)
         st.markdown("""
-        - En başarılı model: **Random Forest**, test verisinde **R² = 0.99**
-        - Aşırı öğrenme gözlemlenmemiştir (train ve test R² yakın)
+        - En başarılı model: **Random Forest**, 
+        - Overfitting gözlemlenmemiştir (train ve test R² yakın)
         - Modelin en önemli değişkenleri:
             - `neighbourhood_encoded`: mahalle ortalama fiyatı
             - `latitude`, `longitude`: konum bilgisi
-            - `room_type_Entire home/apt`: tüm ev olup olmaması
+            - `room_type_Entire home/apt`: 
         """)
 
         st.markdown("<h2 class='section-header'> Çıkarımlar</h2>", unsafe_allow_html=True)
         st.markdown("""
         - Lokasyon ve mahalle ortalamaları fiyat üzerinde en baskın faktörlerdir.
+        - Ev fiyatları üzerinde 'oda tipi', 'yorum_sayısı'  da etkilemektedir.
+        - Model, düşük fiyatlı evlerde daha başarılı tahmin yaparken, uç değerlerde sapmalar yaşanmıştır.
         """)
+    elif selected_page == "Fiyat Tahmin":
+        st.markdown("<h1 class='main-header'> Airbnb Fiyat Tahmin Aracı</h1>", unsafe_allow_html=True)
 
-        
+        X, y, processed_df = preprocess_data(df)
+        rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+        rf_model.fit(X, y)
 
+        st.markdown("<h2 class='section-header'>Bilgilerinizi Girin</h2>", unsafe_allow_html=True)
+
+        # Girişler
+        latitude = st.number_input("Latitude (Enlem)", value=40.75)
+        longitude = st.number_input("Longitude (Boylam)", value=-73.98)
+        minimum_nights = st.number_input("Minimum Konaklama Gecesi", min_value=1, value=3)
+        number_of_reviews = st.number_input("Yorum Sayısı", min_value=0, value=10)
+        reviews_per_month = st.number_input("Aylık Ortalama Yorum", min_value=0.0, value=0.5)
+        availability_365 = st.slider("Yıllık Müsaitlik (gün)", 0, 365, 180)
+
+        neighbourhood_encoded = st.slider("Mahalle Ortalama Fiyatı", min_value=20, max_value=500, value=150)
+
+        neighbourhood_group = st.selectbox("Bölge", ["Brooklyn", "Manhattan", "Queens", "Staten Island", "Bronx"])
+        room_type = st.selectbox("Oda Tipi", ["Private room", "Entire home/apt", "Shared room"])
+
+        # Özellik vektörü oluştur
+        input_data = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "minimum_nights": minimum_nights,
+            "number_of_reviews": number_of_reviews,
+            "reviews_per_month": reviews_per_month,
+            "calculated_host_listings_count": 1,
+            "availability_365": availability_365,
+            "neighbourhood_encoded": neighbourhood_encoded,
+            "review_score": reviews_per_month * number_of_reviews,
+            "minimum_nights_log": np.log1p(minimum_nights),
+            "neighbourhood_group_Manhattan": 1 if neighbourhood_group == "Manhattan" else 0,
+            "neighbourhood_group_Queens": 1 if neighbourhood_group == "Queens" else 0,
+            "neighbourhood_group_Staten Island": 1 if neighbourhood_group == "Staten Island" else 0,
+            "neighbourhood_group_Bronx": 1 if neighbourhood_group == "Bronx" else 0,
+            "room_type_Private room": 1 if room_type == "Private room" else 0,
+            "room_type_Shared room": 1 if room_type == "Shared room" else 0
+        }
+
+        # Modelin beklediği sırayla dataframe'e dönüştür
+        input_df = pd.DataFrame([input_data], columns=X.columns)
+
+        # Tahmin
+        if st.button("Tahmini Fiyatı Göster"):
+            prediction = rf_model.predict(input_df)[0]
+            st.success(f"Tahmini Gecelik Fiyat: **${prediction:.2f}**")
 
 if __name__ == "__main__":
    
